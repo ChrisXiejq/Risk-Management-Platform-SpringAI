@@ -1,0 +1,218 @@
+spring:
+  application:
+    name: backend
+  profiles:
+    active: local
+  # 业务数据源（MySQL）
+  datasource:
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/ib}
+    username: ${MYSQL_USERNAME:ib}
+    password: ${MYSQL_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    # Redis（本地可用 host/port，云端推荐 Upstash：使用 spring.data.redis.url）
+    redis:
+      url: "${REDIS_URL:redis://49.235.179.94:6379/0}"
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  # Spring AI 配置（Gemini + OpenAI）
+  ai:
+    model:
+      chat: google-genai
+      embedding: openai
+    # Google Gemini 2.5 Flash
+    google:
+      genai:
+        api-key: "${GOOGLE_AI_API_KEY:}"
+        chat:
+          options:
+            model: gemini-2.5-flash
+    # OpenAI（Embedding text-embedding-3-small，1536 维）
+    openai:
+      api-key: "${OPENAI_API_KEY:}"
+      embedding:
+        options:
+          model: text-embedding-3-small
+    # 临时注释掉，便于开发调试和部署（实际需要启动 MCP 服务）
+    # mcp:
+    #   client:
+    #     sse:
+    #       connections:
+    #         server1:
+    #           url: http://localhost:8127
+    #     stdio:
+    #       servers-configuration: classpath:mcp-servers.json
+    # PgVector（Supabase PostgreSQL）
+    vectorstore:
+       pgvector:
+         url: ${SUPABASE_DB_URL:jdbc:postgresql://localhost:5432/postgres}
+         username: ${SUPABASE_DB_USERNAME:postgres}
+         password: ${SUPABASE_DB_PASSWORD:}
+         index-type: HNSW
+         dimensions: 1536
+         distance-type: COSINE_DISTANCE
+         max-document-batch-size: 10000
+
+server:
+  port: 8190
+  servlet:
+    context-path: /api
+
+# springdoc-openapi config
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  tags-sorter: alpha
+  operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: default
+      paths-to-match: '/**'
+      packages-to-scan: com.inovationbehavior.backend.controller
+
+# knife4j config
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+# 网页搜索（SearchAPI.io，供检索专家 searchWeb 工具调用，如百度搜索）
+# 未配置时 searchWeb 调用会报错；申请与配置见下方说明或 README
+search-api:
+  api-key: "${SEARCH_API_KEY:}"
+
+# AI 与 Agent 配置
+app:
+  ai:
+    # Banned words (English). Request is rejected if user input contains any; check is case-insensitive.
+    banned-words:
+      # spam / lead-gen
+      - "add wechat"
+      - "add my qq"
+      - "fake invoice"
+      - "click farming"
+      - "fake certificate"
+      # illegal
+      - "gambling"
+      - "pyramid scheme"
+      - "terrorism"
+      # scam
+      - "you have won"
+      - "click to claim prize"
+      - "free prize"
+      # profanity / abuse (expand as needed)
+      - "damn you"
+      - "go die"
+  # 三层分层记忆（Working → Experiential → Long-Term）
+  memory:
+    # Layer1 Working：内存、滑动窗口、动态剪枝、溢出写 Experiential
+    working:
+      window-size: 10
+      max-total-chars: 8000      # 接近时按 importance 剪枝
+      prune-threshold: 0.1       # 低于此分数的轮次（如“好的”“谢谢”）剔除
+      turns-to-compress: 5
+      summary-max-tokens: 300    # 溢出压缩为摘要时的最大 token 数
+    # Layer2 Experiential：事件摘要 + decay_weight
+    experiential:
+      top-k: 5
+      similarity-threshold: 0.4
+      decay-weight-default: 1.0
+    # 长期记忆：NLI 三段论 UPDATE/MERGE + 可选 Zettelkasten
+    long-term:
+      inject-top-k: 3            # retrieve_history 重排后注入的长期记忆条数
+      top-k: 5
+      similarity-threshold: 0.5
+      importance-threshold: 0.25
+      duplicate-similarity-threshold: 0.92
+      nli-check-top-k: 3
+      use-atomic-facts: false    # true 时按 entity-attribute-value 原子事实入库
+    # 重要性评分（领域 NER 加权，可配置关键词）
+    importance:
+      patent-number-weight: 0.35
+      keyword-weight: 0.40
+      length-factor: 0.25
+      max-base-score: 1.0
+      # 逗号分隔关键词（留空则用代码默认：专利、许可、转让等）
+      keywords: "企业安全风险,风险评估,威胁,漏洞,CVE,资产清单,安全控制,治理,合规,ISO 27001,NIST,OWASP,事件响应,补丁,访问控制,数据保护"
+  # 多路召回 RAG 配置（向量检索 pgvector + BM25 关键词检索 → RRF 融合 → Rerank）
+  rag:
+    # 文档目录（支持 classpath 和 file 路径，递归加载所有 .md）
+    documents:
+      path: "classpath*:documents/risk/**/*.md"
+    # 文档分块：递归字符切分（默认） 或 语义切分+Token 回退
+    splitter:
+      chunk-size: 800           # 递归切分：每块最大字符数
+      chunk-overlap: 150        # 递归切分：块间重叠字符数
+      use-semantic: true       # true=语义切分+Token回退，false=递归切分
+      max-chunk-tokens: 400     # 语义切分：每块最大 token 数（约等于 embedding 单块上限）
+      overlap-tokens: 80        # 语义切分：块间重叠 token 数
+    hybrid:
+      vector-top-k: 8    # 向量检索 top-k
+      bm25-top-k: 8      # BM25 检索 top-k
+      final-top-k: 6     # RRF 融合后 rerank 保留的 top-k
+    # Cohere Rerank：enabled=true 且 api-key 配置后使用 Cohere 精排，否则使用 Embedding 相似度精排
+    cohere:
+      enabled: false     # true=使用 Cohere Rerank API 精排
+      api-key: ""        # Cohere API Key（可从 https://dashboard.cohere.com 获取）
+      model: "rerank-multilingual-v3.0"   # 多语言；英文为主可用 rerank-english-v3.0
+    # CRAG 检索后门控：对召回文档做质量评分，Correct 直接用 / Ambiguous 过滤 / Incorrect 返回空触发 searchWeb
+    crag:
+      enabled: false
+      correct-threshold: 0.7    # >= 此分数视为 CORRECT，直接使用文档
+      ambiguous-threshold: 0.35 # >= 此且 < correct 视为 AMBIGUOUS，可截断；< 此视为 INCORRECT 走空上下文
+      ambiguous-trim-to-half: true  # AMBIGUOUS 时是否只保留前一半文档
+    # HyDE：用 LLM 生成假设性文档再做向量检索，提升召回
+    hyde:
+      enabled: false
+    # GraphRAG 风格：实体抽取 + 实体-文档索引，查询时按实体召回并与主检索 RRF 融合
+    graphrag:
+      enabled: false
+      entity-top-k: 6       # 实体路召回条数（与主检索 RRF 融合前）
+      index-max-docs: 300   # 建索引时最多处理的文档数（避免启动过慢）
+    # 多查询融合：将 query 扩展为多条子查询，分别检索后 RRF 融合（迭代/多轮 RAG）
+    multi-query:
+      enabled: false
+      max-queries: 3   # LLM 扩展出的子查询数量（含原查询）
+    # 文档级访问控制（多租户）：检索时按 metadata tenant_id 过滤
+    tenant:
+      enabled: false
+      default-id: ""   # 入库文档默认 tenant_id，空则不加；启用 tenant 时建议为每个租户单独同步文档
+
+  # 多 Agent 图编排（LangGraph4j）
+  agent:
+    graph:
+      max-steps: 5   # 专家节点最大步数，防止死循环
+    # true=打印每次工具调用的名称、入参和返回（[AgentTrace.Tool]），便于观察图内专家调用了哪些工具
+    trace-tools: true
+    # Trace 按 session 查询时默认条数（GET /ai/agent/trace?sessionId=xxx）
+    trace-query-limit: 50
+    # 是否将 Trace 落库（需先执行 docs/schema-agent-trace.sql 建表，且需 MySQL 主库）
+    trace-persist: false
+
+  # Agent Skills（SKILL.md 渐进式披露，Anthropic 风格）
+  skills:
+    location: "classpath:skills/*/SKILL.md"   # 扫描路径，每子目录一个 SKILL.md
+
+  # RAG/Agent 自动化评估（测试集路径、RAGAS 样本数等）
+  eval:
+    rag:
+      test-cases-location: "classpath*:eval/rag-test-cases.json"  # 测试用例 JSON 路径
+      max-faithfulness-samples: 5   # 旧版全量评估 Faithfulness 样本数
+      max-ragas-samples: 5         # RAGAS 评估最多样本数（每条约 4 次 LLM 调用，建议先设小值）
+      ragas-export-path: "target/ragas-eval-input.json"  # Java 导出供 Python ragas 读取的文件路径
+
+# 日志级别：Agent 图编排与 Spring AI 调用细节（运行与排查时建议保持 INFO 以上）
+logging:
+  level:
+    org.springframework.ai: DEBUG
+    # 多 Agent 图：节点进入/离开、当前任务、计划与步数、图执行开始/结束（[AgentGraph] 前缀）
+    com.inovationbehavior.backend.ai.graph: INFO
+    com.inovationbehavior.backend.ai.app: INFO
+    # 工具调用追踪：每次工具 name、input、result 预览（需 app.agent.trace-tools=true）
+    com.inovationbehavior.backend.ai.config.TracingToolCallbackProvider: INFO
+    # 请求/响应与 Agent 追踪（Request/Response/ToolCall 预览）
+    com.inovationbehavior.backend.ai.advisor.AgentTraceAdvisor: INFO
+    com.inovationbehavior.backend.ai.advisor.MyLoggerAdvisor: INFO
