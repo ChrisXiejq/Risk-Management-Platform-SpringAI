@@ -32,7 +32,7 @@ public class GraphTaskAgent extends ToolCallAgent {
         setName("graphTask");
         setSystemPrompt(systemPrompt != null ? systemPrompt : "");
         setNextStepPrompt(nextStepPrompt != null ? nextStepPrompt : "");
-        setMaxSteps(5);
+        setMaxSteps(3);
         setConversationId(chatId);
         List<Advisor> advisors = new ArrayList<>();
         if (memoryPersistenceAdvisor != null) {

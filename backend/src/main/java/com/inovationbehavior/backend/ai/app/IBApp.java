@@ -273,13 +273,6 @@ public class IBApp {
             User message: %s
             Prior step results (if any): %s
             """;
-    private static final String CHECK_ENV_PROMPT = """
-            Given the last task result and the user question, does the result indicate an "environment change" that should change our remaining plan?
-            Environment change includes: scope is clarified/changed, key assets/control assumptions are unavailable, evidence contradictions exist, the requested scenario is already mitigated/compliant, or similar. Answer with exactly one word: yes or no.
-            Last task result: %s
-            User message: %s
-            Reply: yes or no
-            """;
 
     /**
      * P&E 初始规划：根据用户问题（及已有 stepResults、chatId 用于注入反思规则）生成执行计划。
@@ -308,22 +301,20 @@ public class IBApp {
     }
 
     /**
-     * 检查上一步执行结果是否表明「环境变化」（如专利已失效），需动态更新剩余任务。
+     * 检查上一步执行结果是否表明「环境变化」，需动态更新剩余任务。
      */
     public boolean checkEnvironmentChange(String lastStepResult, List<String> remainingTasks, String userMessage) {
         if (lastStepResult == null || lastStepResult.isBlank()) return false;
         String lower = lastStepResult.trim().toLowerCase();
         if (lower.contains("风险已缓解") || lower.contains("已降低风险") || lower.contains("已合规") || lower.contains("控制已实施")
                 || lower.contains("scope changed") || lower.contains("scope is changed") || lower.contains("out of scope")) return true;
+        // 上一步结果已明确不足/缺信息时，不视为环境变化，交给 RePlan 的不足分支处理，避免误触发循环。
+        if (ReplanService.isResultInsufficient(lastStepResult)) return false;
         if (lower.contains("no relevant asset") || lower.contains("no asset") || lower.contains("no data") || lower.contains("insufficient evidence")
                 || lower.contains("contradiction") || lower.contains("conflict")) return true;
-        if (remainingTasks == null || remainingTasks.isEmpty()) return false;
-        String prompt = CHECK_ENV_PROMPT.formatted(abbreviate(lastStepResult, 500), userMessage != null ? abbreviate(userMessage, 200) : "");
-        ChatResponse resp = chatClient.prompt().user(prompt).call().chatResponse();
-        String raw = resp.getResult().getOutput().getText();
-        boolean yes = raw != null && raw.trim().toLowerCase().startsWith("yes");
-        log.info("[AgentGraph.IBApp][checkEnvironmentChange] 环境检查 lastResultLen={} remainingSize={} -> environmentChanged={}", lastStepResult.length(), remainingTasks.size(), yes);
-        return yes;
+        // 为了避免该判定再次触发 LLM 调用造成 503/超时，默认采用规则优先；无法判定时保守返回 false。
+        log.info("[AgentGraph.IBApp][checkEnvironmentChange] 规则判定未命中，降级为 false（remainingSize={}）", remainingTasks != null ? remainingTasks.size() : 0);
+        return false;
     }
 
     private static List<String> parsePlan(String raw) {

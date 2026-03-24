@@ -54,13 +54,23 @@ public class ReplanService {
             log.info("[ReplanService][replan] 重规划 无已有结果，返回 synthesize");
             return List.of("synthesize");
         }
+        String lastResult = stepResults.get(stepResults.size() - 1);
+        if (isResultInsufficient(lastResult) && shouldStopRetrievalLoop(stepResults, lastResult)) {
+            log.info("[ReplanService][replan] 连续检索不足，直接 synthesize 收敛");
+            return List.of("synthesize");
+        }
         String prior = String.join("\n---\n", stepResults);
         String prompt = REPLAN_PROMPT.formatted(userMessage, prior);
-        ChatResponse resp = chatClient.prompt().user(prompt).call().chatResponse();
-        String raw = resp.getResult().getOutput().getText();
-        List<String> plan = parsePlan(raw);
-        log.info("[ReplanService][replan] 重规划 stepResultsSize={} -> plan={}", stepResults.size(), plan);
-        return plan.isEmpty() ? List.of("synthesize") : plan;
+        try {
+            ChatResponse resp = chatClient.prompt().user(prompt).call().chatResponse();
+            String raw = resp.getResult().getOutput().getText();
+            List<String> plan = parsePlan(raw);
+            log.info("[ReplanService][replan] 重规划 stepResultsSize={} -> plan={}", stepResults.size(), plan);
+            return plan.isEmpty() ? List.of("synthesize") : plan;
+        } catch (Exception e) {
+            log.warn("[ReplanService][replan] LLM重规划失败，降级 synthesize: {}", e.getMessage());
+            return List.of("synthesize");
+        }
     }
 
     /**
@@ -71,6 +81,14 @@ public class ReplanService {
         if (userMessage == null) userMessage = "";
         if (stepResults == null) stepResults = List.of();
         String lastResult = stepResults.isEmpty() ? "" : stepResults.get(stepResults.size() - 1);
+        if (shouldStopRetrievalLoop(stepResults, lastResult)) {
+            log.info("[ReplanService][replanRemaining] 检测到重复 retrieval 无进展，直接 synthesize 终止循环");
+            return List.of("synthesize");
+        }
+        if (isMissingScenarioOrInput(lastResult)) {
+            log.info("[ReplanService][replanRemaining] 检测到缺少场景信息，直接 synthesize 输出补充信息引导");
+            return List.of("synthesize");
+        }
         if (shouldRetryRetrievalWithWeb(lastResult)) {
             log.info("[ReplanService][replanRemaining] 重规划剩余 检测到检索结果不足或接口失败，强制 retrieval,synthesize 以用 searchWeb 重试");
             return List.of("retrieval", "synthesize");
@@ -78,11 +96,16 @@ public class ReplanService {
         String prior = stepResults.isEmpty() ? "None" : String.join("\n---\n", stepResults);
         String remainingStr = (remainingTasks == null || remainingTasks.isEmpty()) ? "synthesize" : String.join(", ", remainingTasks);
         String prompt = REPLAN_REMAINING_PROMPT.formatted(remainingStr, userMessage, prior);
-        ChatResponse resp = chatClient.prompt().user(prompt).call().chatResponse();
-        String raw = resp.getResult().getOutput().getText();
-        List<String> newRemaining = parsePlan(raw);
-        log.info("[ReplanService] 重规划剩余 remaining={} -> newRemaining={}", remainingTasks, newRemaining);
-        return newRemaining.isEmpty() ? List.of("synthesize") : newRemaining;
+        try {
+            ChatResponse resp = chatClient.prompt().user(prompt).call().chatResponse();
+            String raw = resp.getResult().getOutput().getText();
+            List<String> newRemaining = parsePlan(raw);
+            log.info("[ReplanService] 重规划剩余 remaining={} -> newRemaining={}", remainingTasks, newRemaining);
+            return newRemaining.isEmpty() ? List.of("synthesize") : newRemaining;
+        } catch (Exception e) {
+            log.warn("[ReplanService][replanRemaining] LLM重规划失败，降级 synthesize: {}", e.getMessage());
+            return List.of("synthesize");
+        }
     }
 
     /** 上一步结果是否为「专利接口/连接失败」且可用 searchWeb 补足（用于强制重试 retrieval） */
@@ -120,6 +143,8 @@ public class ReplanService {
         if (expertOutput == null || expertOutput.isBlank()) return true;
         String lower = expertOutput.trim().toLowerCase();
         if (lower.length() < 10) return true;
+        if (lower.contains("i cannot") || lower.contains("cannot complete") || lower.contains("无法完成")) return true;
+        if (lower.contains("need more information") || lower.contains("please provide")) return true;
         if (lower.contains("i don't know") || lower.contains("i do not know") || lower.contains("don't know")) return true;
         if (lower.contains("无法") || lower.contains("没有找到") || lower.contains("暂无") || lower.contains("无相关")) return true;
         if (lower.contains("no evidence") || lower.contains("no relevant evidence")
@@ -127,6 +152,25 @@ public class ReplanService {
                 || lower.contains("no documents") || lower.contains("no data")) return true;
         if (lower.contains("请提供") && lower.length() < 80) return true;
         return false;
+    }
+
+    private static boolean shouldStopRetrievalLoop(List<String> stepResults, String lastResult) {
+        if (stepResults == null || stepResults.isEmpty()) return false;
+        long retrievalCount = stepResults.stream()
+                .filter(s -> s != null && s.toLowerCase().contains("[task:retrieval]"))
+                .count();
+        return retrievalCount >= 2 && isResultInsufficient(lastResult);
+    }
+
+    private static boolean isMissingScenarioOrInput(String text) {
+        if (text == null || text.isBlank()) return false;
+        String lower = text.toLowerCase();
+        return lower.contains("no risk scenario found")
+                || lower.contains("need more information")
+                || lower.contains("please provide details")
+                || lower.contains("scope")
+                && lower.contains("assets")
+                && lower.contains("constraints");
     }
 
     private static List<String> parsePlan(String raw) {

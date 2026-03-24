@@ -77,7 +77,7 @@ public class ToolCallAgent extends ReActAgent {
         try {
             var chain = getChatClient().prompt(prompt)
                     .system(getSystemPrompt())
-                    .tools((Object) availableTools);
+                    .toolCallbacks(availableTools);
             if (getConversationId() != null) {
                 chain = chain.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, getConversationId()));
             }
@@ -106,6 +106,8 @@ public class ToolCallAgent extends ReActAgent {
             if (toolCallList.isEmpty()) {
                 // 只有不调用工具时，才需要手动记录助手消息
                 getMessageList().add(assistantMessage);
+                // 无工具调用时视为该任务当前已完成，避免在同一上下文内重复 5 轮空转。
+                setState(AgentState.FINISHED);
                 return false;
             } else {
                 // 需要调用工具时，无需记录助手消息，因为调用工具时会自动记录
@@ -114,6 +116,8 @@ public class ToolCallAgent extends ReActAgent {
         } catch (Exception e) {
             log.error(getName() + "的思考过程遇到了问题：" + e.getMessage());
             getMessageList().add(new AssistantMessage("Error occurred during processing: " + e.getMessage()));
+            // 工具绑定/调用异常时结束当前 ReAct 循环，避免同一错误重复跑满 maxSteps。
+            setState(com.inovationbehavior.backend.ai.agent.model.AgentState.FINISHED);
             return false;
         }
     }

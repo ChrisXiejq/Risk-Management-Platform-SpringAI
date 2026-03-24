@@ -76,7 +76,9 @@ public class PatentGraphRunner {
             if (msg != null) {
                 String m = msg.toLowerCase();
                 if (m.contains("503") || m.contains("429") || m.contains("high demand")
-                        || m.contains("rate limit") || m.contains("try again later")) {
+                        || m.contains("rate limit") || m.contains("try again later")
+                        || m.contains("interrupted") || m.contains("timeout")
+                        || m.contains("failed to execute http request")) {
                     return true;
                 }
             }
