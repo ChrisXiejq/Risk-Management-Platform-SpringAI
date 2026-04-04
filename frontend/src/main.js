@@ -15,13 +15,16 @@ import deMessages from './locales/de.json';
 
 import axios from 'axios'
 
+// legacy: false 才能使用 Composition API 的 useI18n()；globalInjection 保留模板里 $t 可用
 const i18n = createI18n({
-    locale: 'zn', // 设置默认语言
+    legacy: false,
+    globalInjection: true,
+    locale: 'zn',
     fallbackLocale: 'zn',
     messages: {
-        en: enMessages, // 导入英语消息
-        zn: znMessages, // 导入中文消息
-        de: deMessages // 导入德文消息
+        en: enMessages,
+        zn: znMessages,
+        de: deMessages
     }
 });
 

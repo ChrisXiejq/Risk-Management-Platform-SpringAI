@@ -1,1 +1,43 @@
 你不能修改backend/src/java/com/riskmanage/ai下面的代码，也就是不能修改我已有的agent逻辑。
+
+你要修改其他的后端部分和前端部分（我现在的前后端是另一个项目直接迁移过来的，不包括ai模块），实现我下面的系统和要求：
+
+这是一个企业安全风险评估Agent系统，用于评估企业内部的安全风险，评估指标是GBT20984，并且能够给用户提供智能的风险分析和智能建议。
+
+技术栈：
+前端：vue3.0+javascript+element-plus
+后端：java+springboot3.0+springAI
+关系型数据库：Supabase PostgreSQL
+No-SQL：Redis
+向量数据库：Supabase PostgreSQL
+
+整个系统应该包含五个模块，即：
+1. 风险识别，包括：
+1.1. 资产识别
+1.2. 威胁识别
+1.3. 脆弱性识别
+1.4. 安全措施识别
+
+2. 风险信息总揽，包括：
+你帮我想想应该怎么设计，包括什么
+
+3. 风险评估记录，包括：
+反应目前风险评估的记录
+
+4. 登录，包括：
+4.1. 最顶层是租户tenant
+4.2. 租户下面是user，每个租户包含多个user
+
+5. agent智能，包括：
+用我现在已有的agent系统
+
+你可以按照你对安全风险评估的理解和网络对安全风险评估的指导来帮我完善这个系统，你来设计存储和接口部分。
+
+supabase PostgreSQL的连接串是：
+postgresql://postgres.vzsmgkokrxdmtvwaqnnm:[YOUR-PASSWORD]@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
+
+host: aws-0-eu-west-1.pooler.supabase.com
+port: 5432
+database: postgres
+user: postgres.vzsmgkokrxdmtvwaqnnm
+

@@ -1,15 +1,18 @@
-### 国际化
+# 前端（企业安全风险评估）
 
-文本内容存储在locals文件夹
+Vue 3 + Element Plus + Vite。文案在 `src/locales/`（`zn` / `en` / `de`）。
 
-没研究出来watch语言切换的方法，就在UseGeneralStore里加了个changeLanguage
+## 脚本
 
-watch(() => store.changeLanguage, () => {
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-​    //updateContent(ctx.$i18n.locale);
+或在仓库根目录：`npm run dev`（见根目录 `package.json`）。
 
-});
+## 路由
 
-具体如何使用详见Components/TopNav.vue（使用locales文件夹中的文本）
-
-components/public/ContentItem.vue（内容随语言实时切换）
+- `/` 首页说明
+- `/erm/*` 风险评估工作台（部分页面需登录）

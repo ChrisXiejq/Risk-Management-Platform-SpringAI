@@ -1,7 +1,8 @@
 {
-  "name": "frontend",
+  "name": "erm-frontend",
   "private": true,
   "version": "0.0.0",
+  "description": "企业安全风险评估系统前端",
   "type": "module",
   "scripts": {
     "dev": "vite",

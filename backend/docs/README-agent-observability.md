@@ -42,5 +42,5 @@ app:
 
 ## 4. 关闭或降低日志量
 
-- 关闭 AgentTrace 日志：在 logback/log4j 中把 `com.inovationbehavior.backend.ai.advisor.AgentTraceAdvisor` 设为 `WARN`。
-- 关闭工具执行日志：设 `app.agent.trace-tools: false`，并把 `com.inovationbehavior.backend.ai.config.TracingToolCallbackProvider` 设为 `WARN`（若仍想保留 Bean 但不打日志）。
+- 关闭 AgentTrace 日志：在 logback/log4j 中把 `advisor.ai.com.risk.backend.AgentTraceAdvisor` 设为 `WARN`。
+- 关闭工具执行日志：设 `app.agent.trace-tools: false`，并把 `config.ai.com.risk.backend.TracingToolCallbackProvider` 设为 `WARN`（若仍想保留 Bean 但不打日志）。

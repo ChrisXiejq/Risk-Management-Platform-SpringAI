@@ -10,9 +10,15 @@ spring:
     password: ${MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
-    # Redis（本地可用 host/port，云端推荐 Upstash：使用 spring.data.redis.url）
+    # Redis：默认本地无 TLS；Upstash 在 application-local.yaml 中通过 host + ssl + password 配置
     redis:
-      url: "${REDIS_URL:redis://49.235.179.94:6379/0}"
+      connect-timeout: 5s
+      timeout: 10s
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}
   jpa:
     hibernate:
       ddl-auto: update
@@ -71,7 +77,7 @@ springdoc:
   group-configs:
     - group: default
       paths-to-match: '/**'
-      packages-to-scan: com.inovationbehavior.backend.controller
+      packages-to-scan: com.risk.backend.controller
 
 # knife4j config
 knife4j:
@@ -196,6 +202,29 @@ app:
   skills:
     location: "classpath:skills/*/SKILL.md"   # 扫描路径，每子目录一个 SKILL.md
 
+  # Redis：Upstash 等在 application-local 中写 app.redis.upstash.*，并映射到 spring.data.redis.*
+  redis:
+    upstash:
+      host: ${UPSTASH_REDIS_HOST:}
+      port: ${UPSTASH_REDIS_PORT:6379}
+      username: ${UPSTASH_REDIS_USERNAME:default}
+      token: ${UPSTASH_REDIS_TOKEN:}
+    cache:
+      dashboard-overview-ttl: 90s
+
+  # 企业安全风险评估（ERM）：租户/用户/识别要素/评估记录，库为 Supabase PostgreSQL（可与向量库同一实例）
+  erm:
+    # 首次部署时在目标库执行建表：设为 true 启动时执行 classpath:db/erm-schema.sql（生产建议改为 Flyway 并关闭此项）
+    schema-init: ${ERM_SCHEMA_INIT:false}
+    jwt:
+      secret: ${ERM_JWT_SECRET:please-change-this-erm-jwt-secret-min-32-characters-long}
+      access-hours: 24
+    datasource:
+      url: ${SUPABASE_DB_URL:jdbc:postgresql://localhost:5432/postgres}
+      username: ${SUPABASE_DB_USERNAME:postgres}
+      password: ${SUPABASE_DB_PASSWORD:}
+      driver-class-name: org.postgresql.Driver
+
   # RAG/Agent 自动化评估（测试集路径、RAGAS 样本数等）
   eval:
     rag:
@@ -204,15 +233,31 @@ app:
       max-ragas-samples: 5         # RAGAS 评估最多样本数（每条约 4 次 LLM 调用，建议先设小值）
       ragas-export-path: "target/ragas-eval-input.json"  # Java 导出供 Python ragas 读取的文件路径
 
+# Actuator：健康检查（含 Redis）、缓存与指标；context-path=/api 时访问 /api/actuator/*
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,caches,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+  health:
+    redis:
+      enabled: true
+
 # 日志级别：Agent 图编排与 Spring AI 调用细节（运行与排查时建议保持 INFO 以上）
 logging:
   level:
     org.springframework.ai: DEBUG
     # 多 Agent 图：节点进入/离开、当前任务、计划与步数、图执行开始/结束（[AgentGraph] 前缀）
-    com.inovationbehavior.backend.ai.graph: INFO
-    com.inovationbehavior.backend.ai.app: INFO
+    com.risk.backend.ai.graph: INFO
+    com.risk.backend.ai.app: INFO
     # 工具调用追踪：每次工具 name、input、result 预览（需 app.agent.trace-tools=true）
-    com.inovationbehavior.backend.ai.config.TracingToolCallbackProvider: INFO
+    com.risk.backend.ai.config.TracingToolCallbackProvider: INFO
     # 请求/响应与 Agent 追踪（Request/Response/ToolCall 预览）
-    com.inovationbehavior.backend.ai.advisor.AgentTraceAdvisor: INFO
-    com.inovationbehavior.backend.ai.advisor.MyLoggerAdvisor: INFO
+    com.risk.backend.ai.advisor.AgentTraceAdvisor: INFO
+    com.risk.backend.ai.advisor.MyLoggerAdvisor: INFO
+    com.risk.backend.infrastructure: INFO
+    com.risk.backend.application: INFO

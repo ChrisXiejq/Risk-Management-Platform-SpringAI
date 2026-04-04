@@ -1,101 +1,48 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { useErmAuthStore } from '../stores/ermAuth'
 
 const routes = [
   {
-    // Home
     path: '/',
     name: 'home',
-    component: () => import('../views/Home/home.vue')
+    component: () => import('../views/Home/home.vue'),
+    meta: { title: '首页' }
   },
   {
-    // OpenLicensingPlatform
-    path: '/platform',
-    name: 'OpenLicensingPlatform',
-    component: () => import('../views/OpenLicensingPlatform/Platform.vue')
+    path: '/erm/login',
+    name: 'erm-login',
+    component: () => import('../views/ERM/Login.vue'),
+    meta: { title: '登录' }
   },
   {
-    // News
-    path: '/news',
-    name: 'news',
-    component: () => import('../views/News/News.vue')
+    path: '/erm/dashboard',
+    name: 'erm-dashboard',
+    component: () => import('../views/ERM/Dashboard.vue'),
+    meta: { requiresErmAuth: true, title: '风险总览' }
   },
   {
-    // News_Info
-    path: '/news/:id',
-    name: 'newsInfo',
-    component: () => import('../views/News/Info.vue')
+    path: '/erm/identification',
+    name: 'erm-identification',
+    component: () => import('../views/ERM/Identification.vue'),
+    meta: { requiresErmAuth: true, title: '风险识别' }
   },
   {
-    // TeamMember
-    path: '/team',
-    name: 'team',
-    component: () => import('../views/TeamMember/TeamMember.vue')
+    path: '/erm/assessments',
+    name: 'erm-assessments',
+    component: () => import('../views/ERM/Assessments.vue'),
+    meta: { requiresErmAuth: true, title: '评估记录' }
   },
   {
-    // IP_Economics
-    path: '/economics',
-    name: 'economics',
-    component: () => import('../views/IP_Economics/index.vue')
+    path: '/erm/assessments/:id',
+    name: 'erm-assessment-detail',
+    component: () => import('../views/ERM/AssessmentDetail.vue'),
+    meta: { requiresErmAuth: true, title: '评估详情' }
   },
   {
-    // IP_Economic_Article_Info
-    path: '/economic/articles/:_id',
-    name: 'economicArticleInfo',
-    component: () => import('../views/IP_Economics/Info.vue')
-  },
-  {
-    // IP_Economic_Courses_Info
-    path: '/economic/courses/:_id',
-    name: 'economicCoursesInfo',
-    component: () => import('../views/IP_Economics/courseInfo.vue')
-  },
-  {
-    // IP_Intelligence
-    path: '/intelligence',
-    name: 'intelligence',
-    component: () => import('../views/IP_Intelligence/index.vue')
-  },
-  {
-    // IP_Intelligence_Course_Info
-    path: '/intelligence/courses/:_id',
-    name: 'intelligenceCourseInfo',
-    component: () => import('../views/IP_Intelligence/Info.vue')
-  },
-  {
-    // IP_Intelligence_PatentPledge_Info
-    path: '/intelligence/patentpledge/:_id',
-    name: 'intelligencePatentPledgeInfo',
-    component: () => import('../views/IP_Intelligence/Info.vue')
-  },
-  {
-    // Patent_Value_Survey
-    path: '/survey-method',
-    name: 'survey-method',
-    component: () => import('../views/Patent_Value_Survey/Survey-method.vue')
-  },
-  {
-    // Patent_Value_Survey
-    path: '/survey',
-    name: 'survey',
-    component: () => import('../views/Patent_Value_Survey/Survey.vue')
-  },
-  {
-    // Patent_Value_Survey
-    path: '/survey-results',
-    name: 'survey-results',
-    component: () => import('../views/Patent_Value_Survey/Survey-results.vue')
-  },
-  {
-    // SurveyUtils
-    path: '/survey-utils',
-    name: 'survey-utils',
-    component: () => import('../views/Patent_Value_Survey/SurveyUtils.vue')
-  },
-  {
-    // DataUsageInstructions
-    path: '/data-usage-instructions',
-    name: 'data-usage-instructions',
-    component: () => import('../views/Patent_Value_Survey/DataUsageInstructions.vue')
+    path: '/erm/agent',
+    name: 'erm-agent',
+    component: () => import('../views/ERM/Agent.vue'),
+    meta: { requiresErmAuth: true, title: '智能分析' }
   }
 ]
 
@@ -104,8 +51,21 @@ const router = createRouter({
   routes
 })
 
-// router.beforeEach((to, from, next) => {
+const DEFAULT_TITLE = '企业安全风险评估系统'
 
-// })
+router.beforeEach((to, from, next) => {
+  if (to.meta.requiresErmAuth) {
+    const auth = useErmAuthStore()
+    if (!auth.token) {
+      next({ path: '/erm/login', query: { redirect: to.fullPath } })
+      return
+    }
+  }
+  next()
+})
+
+router.afterEach((to) => {
+  document.title = to.meta.title ? `${to.meta.title} · ${DEFAULT_TITLE}` : DEFAULT_TITLE
+})
 
 export default router

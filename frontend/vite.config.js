@@ -7,12 +7,10 @@ export default defineConfig({
     open: true,//启动项目自动弹出浏览器
     port: 8192,//启动端口
     proxy: {
+      // 后端 server.servlet.context-path=/api，此处不再 strip 前缀，保证 /api/** 直达网关上下文
       '/api': {
-        // target: 'http://49.235.179.94:8190',	
-         target: 'http://localhost:8190',
-        // target: 'http://110.40.206.206:8190',	
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        target: 'http://localhost:8190',
+        changeOrigin: true
       },
     },
     // client: {

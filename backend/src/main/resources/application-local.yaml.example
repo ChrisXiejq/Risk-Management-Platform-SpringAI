@@ -9,8 +9,14 @@ spring:
     password: ""  # 填入 MySQL 密码，或设置环境变量 MYSQL_PASSWORD
 
   data:
+    # Upstash：TLS + 用户名 default + token（与控制台「Redis CLI」连接串中密码段一致）
     redis:
-      url: redis://49.235.179.94:6379/0
+      host: ${app.redis.upstash.host}
+      port: ${app.redis.upstash.port}
+      username: ${app.redis.upstash.username}
+      password: ${app.redis.upstash.token}
+      ssl:
+        enabled: true
 
   ai:
     google:
@@ -25,6 +31,22 @@ spring:
         url: jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postgres
         username: postgres.sdxlcukvwjxlqyssidzc
         password: ""  # 填入 Supabase 数据库密码，或设置 SUPABASE_DB_PASSWORD
+
+# Upstash Redis（复制控制台连接信息；token 勿提交仓库，可用环境变量 UPSTASH_REDIS_TOKEN）
+app:
+  redis:
+    upstash:
+      host: your-instance.upstash.io
+      port: 6379
+      username: default
+      token: ""   # 或 UPSTASH_REDIS_TOKEN
+    cache:
+      dashboard-overview-ttl: 90s
+  erm:
+    datasource:
+      url: jdbc:postgresql://localhost:5432/postgres
+      username: postgres
+      password: ""  # 或 SUPABASE_DB_PASSWORD
 
 # 网页搜索（SearchAPI.io，检索专家 searchWeb 工具）
 # 申请地址：https://www.searchapi.io/ → Sign Up → Dashboard 中复制 API Key

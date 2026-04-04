@@ -86,12 +86,12 @@
 
 ### 3.1 顶层目录
 
-| 目录 | 用途 |
-|------|------|
-| `src/main/java` | 业务与 AI 源码，根包 `com.inovationbehavior.backend` |
+| 目录 | 用途                                                                                    |
+|------|---------------------------------------------------------------------------------------|
+| `src/main/java` | 业务与 AI 源码，根包 `com.risk.backend`                                                       |
 | `src/main/resources` | `application.yaml`、`application-local*`、RAG 文档 `documents/**/*.md`、评测用例 `eval/*.json` |
-| `scripts` | RAGAS 等评测脚本（Python），与 Java 导出结果配合 |
-| `docs` | 记忆/可观测/Web Search 说明、图执行流程、本技术文档 |
+| `scripts` | RAGAS 等评测脚本（Python），与 Java 导出结果配合                                                     |
+| `docs` | 记忆/可观测/Web Search 说明、图执行流程、本技术文档                                                      |
 
 ### 3.2 包与职责（一句话）
 
